@@ -75,21 +75,21 @@ void commandEngine() {
       }
     }
 
-    else if (command.startsWith("GO ")) 
-    {
-      String arg1 = getValue(command, ' ', 1);
-      if (arg1 != "") {
-        int val1 = arg1.toInt();
-        functionManualGo(val1);
-      } 
-      else {
-        Serial.println("Nieprawidłowy argument!");
-      }
-    }
-    else if (command.startsWith("STOP")) 
-    {
-      functionSTOP();
-    }
+    // else if (command.startsWith("GO ")) 
+    // {
+    //   String arg1 = getValue(command, ' ', 1);
+    //   if (arg1 != "") {
+    //     int val1 = arg1.toInt();
+    //     functionManualGo(val1);
+    //   } 
+    //   else {
+    //     Serial.println("Nieprawidłowy argument!");
+    //   }
+    // }
+    // else if (command.startsWith("STOP")) 
+    // {
+    //   functionSTOP();
+    // }
     else if (command.startsWith("V_LIM ")) {
       String arg1 = getValue(command, ' ', 1);
       String arg2 = getValue(command, ' ', 2);
@@ -158,23 +158,23 @@ void functionAngle(float arg) {
   Serial.println(arg);
 }
 
-void functionManualGo(float arg) {
-  enable_balancing = false;
-  manual_go = true;
-  motor_right_setpoint_speed = arg;
-  motor_left_setpoint_speed = arg;
+// void functionManualGo(float arg) {
+//   enable_balancing = false;
+//   manual_go = true;
+//   motor_right_setpoint_speed = arg;
+//   motor_left_setpoint_speed = arg;
 
-  Serial.print("Manual go: ");
-  Serial.println(arg);
-}
+//   Serial.print("Manual go: ");
+//   Serial.println(arg);
+// }
 
-void functionSTOP() {
-  enable_balancing = false;
-  manual_go = true;
-  motor_right_setpoint_speed = 0;
-  motor_left_setpoint_speed = 0;
-  Serial.println("STOO");
-}
+// void functionSTOP() {
+//   enable_balancing = false;
+//   manual_go = true;
+//   motor_right_setpoint_speed = 0;
+//   motor_left_setpoint_speed = 0;
+//   Serial.println("STOP");
+// }
 
 void functionAngleSpan(float arg) {
   Angle_balance_span = arg;

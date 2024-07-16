@@ -19,6 +19,8 @@
 #define GYRO_INTERVAL 5
 #define SERIAL_INTERVAL 50
 
+#define PIN_ENABLE 6
+
 #define PID_BALANCING_SAMPLE_TIME_MS 50 // originally 50 ms
 
 // KEYBOARD CONTROL
@@ -37,7 +39,7 @@ AccelStepper motor1(AccelStepper::DRIVER, 2, 4);
 AccelStepper motor2(AccelStepper::DRIVER, 3, 5);
 
 // PID
-double Setpoint_angle, Input_angle, Output_motor_speed;
+double Setpoint_angle, Input_angle, Output_motor_speed, Kp_balancing, Ki_balancing, Kd_balancing;
 uint8_t Velocity_limit_min, Velocity_limit_max, Angle_balance_span;
 
 PID balancePID(&Input_angle, &Output_motor_speed, &Setpoint_angle, Kp_balancing, Ki_balancing, Kd_balancing, DIRECT);
@@ -71,6 +73,9 @@ void setup() {
   EEPROM.get(ADDR_VELOCITY_LIMIT_MAX, Velocity_limit_max);
   // EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span);
   Angle_balance_span = 20;
+
+  pinMode(PIN_ENABLE, OUTPUT);
+  digitalWrite(PIN_ENABLE, HIGH);
 
   balancePID.SetTunings(Kp_balancing, Ki_balancing, Kd_balancing);
   balancePID.SetOutputLimits(-Velocity_limit_min, Velocity_limit_max);
@@ -107,33 +112,36 @@ void loop() {
   }
 
   if (enable_balancing) {
-    manual_go = false;
+	digitalWrite(PIN_ENABLE, LOW);
+    // manual_go = false;
     Input_angle = kalPitch;
     // Input_angle = Setpoint_angle-5;
-    motor_right_setpoint_speed = Output_motor_speed;
-    motor_left_setpoint_speed = Output_motor_speed;
+    // motor_right_setpoint_speed = Output_motor_speed;
+    // motor_left_setpoint_speed = Output_motor_speed;
     balancePID.Compute();
     // Motors movement
-    motor1.setSpeed(Output_motor_speed);
-    motor2.setSpeed(-Output_motor_speed);
+    motor1.setSpeed(-Output_motor_speed);
+    motor2.setSpeed(Output_motor_speed);
     motor1.runSpeed();
     motor2.runSpeed();
     if (kalPitch < Setpoint_angle - Angle_balance_span || kalPitch > Setpoint_angle + Angle_balance_span) {
-      enable_balancing = false;
-      motor_right_pwm = 0;
-      motor_left_pwm = 0;
-      Serial.println("Angle span exceeded!");
+		enable_balancing = false;
+		digitalWrite(PIN_ENABLE, HIGH);
+
+		motor1.setSpeed(0);
+		motor2.setSpeed(0);
+		motor1.runSpeed();
+		motor2.runSpeed();   
+		Serial.println("Angle span exceeded!");
     }
   } else {
-      if (manual_go)
-      {
-        motor_left_go();   //Motor Forward
-        motor_right_go();  //Motor Forward
-      }
-      else
-      {
-        motors_stop();      
-      }    
+		digitalWrite(PIN_ENABLE, HIGH);
+
+		motor1.setSpeed(0);
+		motor2.setSpeed(0);
+		motor1.runSpeed();
+		motor2.runSpeed();     
+
   }
 
   if ((now - serial_timer > SERIAL_INTERVAL) and !disable_serial) {
@@ -147,7 +155,7 @@ void serial_data() {
   Serial.print(kalPitch - Setpoint_angle);
   Serial.print(",");
   Serial.print("Out_spd:");
-  Serial.print(motor_left_pwm);
+  Serial.print(Output_motor_speed);
   Serial.print(",");
   Serial.println();
 }

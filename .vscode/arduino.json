@@ -1,5 +1,7 @@
 {
+    "output": "/ArduinoOutput",
     "port": "COM8",
     "board": "arduino:avr:uno",
-    "programmer": "avrispmkii"
+    "programmer": "avrispmkii",
+    "sketch": "Balancing_robot_stepper.ino"
 }
