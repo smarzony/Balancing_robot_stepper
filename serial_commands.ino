@@ -149,7 +149,7 @@ void functionD(double arg) {
   Serial.println(arg);
 }
 
-void functionAngle(float arg) {
+void functionAngle(double arg) {
   Setpoint_angle = arg;
   // balancePID.SetSetpoint(arg);
   EEPROM.put(ADDR_ANGLE, arg);
@@ -176,7 +176,7 @@ void functionAngle(float arg) {
 //   Serial.println("STOP");
 // }
 
-void functionAngleSpan(float arg) {
+void functionAngleSpan(double arg) {
   Angle_balance_span = arg;
   EEPROM.put(ADDR_ANGLE_BALANCE_SPAN, arg);
   Serial.print("ANGLE SPAN set to: ");
@@ -226,20 +226,18 @@ void functionPrint() {
   // Dodaj inne parametry, jeśli są potrzebne
 }
 
-void functionVLim(int16_t arg1, int16_t arg2) {
+void functionVLim(double arg1, double arg2) {
   arg1 = abs(arg1);
   arg2 = abs(arg2);
   EEPROM.put(ADDR_VELOCITY_LIMIT_MIN, arg1);
   EEPROM.put(ADDR_VELOCITY_LIMIT_MAX, arg2);
   Velocity_limit_min = arg1;
   Velocity_limit_max = arg2;
+  balancePID.SetOutputLimits(-Velocity_limit_min, Velocity_limit_max);
   
-
-  // Dodaj kod obsługujący zapis parametrów V_LIM
-  balancePID.SetOutputLimits(-arg1, arg2);
   Serial.print("Wartość parametru V_LIMIT_MIN ustawiona na: ");
-  Serial.println(arg1);
+  Serial.println(Velocity_limit_min);
   Serial.print("Wartość parametru V_LIMIT_MAX ustawiona na: ");
-  Serial.println(arg2);
+  Serial.println(Velocity_limit_max);
 }
 

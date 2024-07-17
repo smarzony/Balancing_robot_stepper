@@ -13,8 +13,8 @@
 #define ADDR_D (ADDR_I + DOUBLE_SIZEOF)
 #define ADDR_ANGLE (ADDR_D + DOUBLE_SIZEOF)
 #define ADDR_VELOCITY_LIMIT_MIN (ADDR_ANGLE + DOUBLE_SIZEOF)
-#define ADDR_VELOCITY_LIMIT_MAX (ADDR_VELOCITY_LIMIT_MIN + UINT8_T_SIZEOF)
-#define ADDR_ANGLE_BALANCE_SPAN (ADDR_VELOCITY_LIMIT_MAX + UINT8_T_SIZEOF)
+#define ADDR_VELOCITY_LIMIT_MAX (ADDR_VELOCITY_LIMIT_MIN + DOUBLE_SIZEOF)
+#define ADDR_ANGLE_BALANCE_SPAN (ADDR_VELOCITY_LIMIT_MAX + DOUBLE_SIZEOF)
 
 #define GYRO_INTERVAL 5
 #define SERIAL_INTERVAL 50
@@ -40,7 +40,7 @@ AccelStepper motor2(AccelStepper::DRIVER, 3, 5);
 
 // PID
 double Setpoint_angle, Input_angle, Output_motor_speed, Kp_balancing, Ki_balancing, Kd_balancing;
-uint8_t Velocity_limit_min, Velocity_limit_max, Angle_balance_span;
+double Velocity_limit_min, Velocity_limit_max, Angle_balance_span;
 
 PID balancePID(&Input_angle, &Output_motor_speed, &Setpoint_angle, Kp_balancing, Ki_balancing, Kd_balancing, DIRECT);
 
@@ -71,11 +71,10 @@ void setup() {
   EEPROM.get(ADDR_ANGLE, Setpoint_angle);
   EEPROM.get(ADDR_VELOCITY_LIMIT_MIN, Velocity_limit_min);
   EEPROM.get(ADDR_VELOCITY_LIMIT_MAX, Velocity_limit_max);
-  // EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span);
-  Angle_balance_span = 20;
+  EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span);
+  // Angle_balance_span = 20;
 
   pinMode(PIN_ENABLE, OUTPUT);
-  digitalWrite(PIN_ENABLE, HIGH);
 
   balancePID.SetTunings(Kp_balancing, Ki_balancing, Kd_balancing);
   balancePID.SetOutputLimits(-Velocity_limit_min, Velocity_limit_max);
@@ -92,14 +91,18 @@ void setup() {
   mpu.calibrateGyro();
 
     // Konfiguracja silników
-  motor1.setMaxSpeed(1000);
-  motor1.setAcceleration(500);
-  motor2.setMaxSpeed(1000);
-  motor2.setAcceleration(500);
+  motor1.setMaxSpeed(2000);
+  motor1.setAcceleration(2000);
+  motor2.setMaxSpeed(2000);
+  motor2.setAcceleration(2000);
 
   balancePID.SetMode(AUTOMATIC);                           //PID is set to automatic mode
   balancePID.SetSampleTime(PID_BALANCING_SAMPLE_TIME_MS);  //Set PID sampling frequency is 100ms
   balancePID.SetOutputLimits(-Velocity_limit_min, Velocity_limit_max);
+
+  delay(200);
+  digitalWrite(PIN_ENABLE, HIGH);
+
 }
 
 void loop() {
