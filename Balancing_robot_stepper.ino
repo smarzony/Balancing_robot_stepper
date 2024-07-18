@@ -74,6 +74,14 @@ void setup() {
   EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span);
   // Angle_balance_span = 20;
 
+  mpu.setAccelOffsetX(-2814.0);
+  mpu.setAccelOffsetY(-304.0);
+  mpu.setAccelOffsetZ(5198.0);
+
+  mpu.setGyroOffsetX(-120.0);
+  mpu.setGyroOffsetY(-72.0);
+  mpu.setGyroOffsetZ(-51.0);
+
   pinMode(PIN_ENABLE, OUTPUT);
 
   balancePID.SetTunings(Kp_balancing, Ki_balancing, Kd_balancing);
