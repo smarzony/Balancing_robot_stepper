@@ -1,5 +1,6 @@
 #include <Wire.h>
-#include <MPU6050.h>
+// #include <MPU6050.h>
+#include <MPU6050_light.h>
 #include <KalmanFilter.h>
 #include <PID_v1.h>
 #include <EEPROM.h>
@@ -45,19 +46,20 @@ double Velocity_limit_min, Velocity_limit_max, Angle_balance_span;
 PID balancePID(&Input_angle, &Output_motor_speed, &Setpoint_angle, Kp_balancing, Ki_balancing, Kd_balancing, DIRECT);
 
 // GYRO & KALMAN
-MPU6050 mpu;
+// MPU6050 mpu;
+MPU6050 mpu(Wire);
 
-// Konfiguracja filtru Kalmana dla osi X i Y (kat, odchylka, pomiar)
-KalmanFilter kalmanX(0.001, 0.003, 0.03);
-KalmanFilter kalmanY(0.001, 0.003, 0.03);
+// // Konfiguracja filtru Kalmana dla osi X i Y (kat, odchylka, pomiar)
+// KalmanFilter kalmanX(0.001, 0.003, 0.03);
+// KalmanFilter kalmanY(0.001, 0.003, 0.03);
 
-// Obliczone wartosci Pitch i Roll tylko z akcelerometru
-float accPitch = 0;
-float accRoll = 0;
+// // Obliczone wartosci Pitch i Roll tylko z akcelerometru
+// float accPitch = 0;
+// float accRoll = 0;
 
-// Obliczone wartosci Pitch i Roll z uwzglednieniem filtru Kalmana i zyroskopu
+// // Obliczone wartosci Pitch i Roll z uwzglednieniem filtru Kalmana i zyroskopu
 float kalPitch = 0;
-float kalRoll = 0;
+// float kalRoll = 0;
 
 unsigned long now, gyro_timer, serial_timer;
 
@@ -74,13 +76,13 @@ void setup() {
   EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span);
   // Angle_balance_span = 20;
 
-  mpu.setAccelOffsetX(-2814.0);
-  mpu.setAccelOffsetY(-304.0);
-  mpu.setAccelOffsetZ(5198.0);
+  // mpu.setAccelOffsetX(-2814.0);
+  // mpu.setAccelOffsetY(-304.0);
+  // mpu.setAccelOffsetZ(5198.0);
 
-  mpu.setGyroOffsetX(-120.0);
-  mpu.setGyroOffsetY(-72.0);
-  mpu.setGyroOffsetZ(-51.0);
+  // mpu.setGyroOffsetX(-120.0);
+  // mpu.setGyroOffsetY(-72.0);
+  // mpu.setGyroOffsetZ(-51.0);
 
   pinMode(PIN_ENABLE, OUTPUT);
 
@@ -89,14 +91,30 @@ void setup() {
 
   // GYRO
   // Inicjalizacja MPU6050
-  Serial.println("Inicjalizacja MPU6050");
-  while (!mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G)) {
-    Serial.println("Nie znaleziono MPU6050!");
-    delay(500);
-  }
+  // Serial.println("Inicjalizacja MPU6050");
+  // while (!mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G)) {
+  //   Serial.println("Nie znaleziono MPU6050!");
+  //   delay(500);
+  // }
 
-  // Kalibracja zyroskopu
-  mpu.calibrateGyro();
+
+  // // Kalibracja zyroskopu
+  // mpu.calibrateGyro();
+
+
+  Wire.begin();
+  byte status = mpu.begin();
+  Serial.print(F("MPU6050 status: "));
+  Serial.println(status);
+  while (status != 0) 
+    {
+
+    }  // stop everything if could not connect to MPU6050
+  Serial.println(F("Calculating offsets, do not move MPU6050"));
+  delay(1000);
+  mpu.calcOffsets();  // gyro and accelero
+  Serial.println("Done!");
+
 
     // Konfiguracja silników
   motor1.setMaxSpeed(2000);
@@ -117,15 +135,18 @@ void loop() {
   now = millis();
   keyboard_read();
   commandEngine();
+  mpu.update();
   if (now - gyro_timer > GYRO_INTERVAL) {
     gyro_timer = now;
-    read_gyro_kalman();
+    // read_gyro_kalman();
+    kalPitch = mpu.getAngleY();
   }
 
   if (enable_balancing) {
 	digitalWrite(PIN_ENABLE, LOW);
     // manual_go = false;
     Input_angle = kalPitch;
+
     // Input_angle = Setpoint_angle-5;
     // motor_right_setpoint_speed = Output_motor_speed;
     // motor_left_setpoint_speed = Output_motor_speed;
