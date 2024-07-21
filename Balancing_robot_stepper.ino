@@ -22,7 +22,7 @@
 
 #define PIN_ENABLE 6
 
-#define PID_BALANCING_SAMPLE_TIME_MS 50 // originally 50 ms
+#define PID_BALANCING_SAMPLE_TIME_MS 100 // originally 50 ms
 
 // KEYBOARD CONTROL
 uint16_t adc_key_val[5] = { 50, 200, 400, 600, 800 };
@@ -117,9 +117,9 @@ void setup() {
 
 
     // Konfiguracja silników
-  motor1.setMaxSpeed(2000);
+  motor1.setMaxSpeed(1500);
   motor1.setAcceleration(2000);
-  motor2.setMaxSpeed(2000);
+  motor2.setMaxSpeed(1500);
   motor2.setAcceleration(2000);
 
   balancePID.SetMode(AUTOMATIC);                           //PID is set to automatic mode
@@ -135,51 +135,51 @@ void loop() {
   now = millis();
   keyboard_read();
   commandEngine();
-  mpu.update();
+
   if (now - gyro_timer > GYRO_INTERVAL) {
+    mpu.update();
     gyro_timer = now;
-    // read_gyro_kalman();
     kalPitch = mpu.getAngleY();
   }
 
   if (enable_balancing) {
-	digitalWrite(PIN_ENABLE, LOW);
-    // manual_go = false;
+    digitalWrite(PIN_ENABLE, LOW);
     Input_angle = kalPitch;
 
-    // Input_angle = Setpoint_angle-5;
-    // motor_right_setpoint_speed = Output_motor_speed;
-    // motor_left_setpoint_speed = Output_motor_speed;
     balancePID.Compute();
-    // Motors movement
+
+    // Przesuwanie silników tylko gdy konieczne
     motor1.setSpeed(-Output_motor_speed);
     motor2.setSpeed(Output_motor_speed);
     motor1.runSpeed();
     motor2.runSpeed();
-    if (kalPitch < Setpoint_angle - Angle_balance_span || kalPitch > Setpoint_angle + Angle_balance_span) {
-		enable_balancing = false;
-		digitalWrite(PIN_ENABLE, HIGH);
 
-		motor1.setSpeed(0);
-		motor2.setSpeed(0);
-		motor1.runSpeed();
-		motor2.runSpeed();   
-		Serial.println("Angle span exceeded!");
+    if (kalPitch < Setpoint_angle - Angle_balance_span || kalPitch > Setpoint_angle + Angle_balance_span) {
+      disableBalancing();
     }
   } else {
-		digitalWrite(PIN_ENABLE, HIGH);
-
-		motor1.setSpeed(0);
-		motor2.setSpeed(0);
-		motor1.runSpeed();
-		motor2.runSpeed();     
-
+    stopMotors();
   }
 
-  if ((now - serial_timer > SERIAL_INTERVAL) and !disable_serial) {
+  if ((now - serial_timer > SERIAL_INTERVAL) && !disable_serial) {
     serial_timer = now;
     serial_data();
   }
+}
+
+void stopMotors() {
+  motor1.setSpeed(0);
+  motor2.setSpeed(0);
+  motor1.runSpeed();
+  motor2.runSpeed();     
+  digitalWrite(PIN_ENABLE, HIGH);
+}
+
+void disableBalancing() {
+  enable_balancing = false;
+  stopMotors();
+  Serial.println("Angle span exceeded!");
+  digitalWrite(PIN_ENABLE, HIGH);
 }
 
 void serial_data() {

@@ -1,128 +1,43 @@
-#define MAX_ARGUMENTS 3
-
 void commandEngine() {
-  String unknown = "Nieznana komenda!";
   if (Serial.available() > 0) {
-    String command = Serial.readStringUntil('\n'); // Odczytaj dane z portu szeregowego do momentu napotkania znaku nowej linii
+    String command = Serial.readStringUntil('\n');
+    command.trim();
 
-    // Serial.print("Otrzymano komendę: ");
-    // Serial.println(command);
-
-    if (command.startsWith("PRINT")) 
-    {
-      if (command.length() == 5 || command.length() == 6) {
-        functionPrint();
-      } else {
-        Serial.println(unknown);
-      }
-    } 
-    else if (command.startsWith("BAL")) 
-    {
-      if (command.length() == 3 || command.length() == 4) {
-        functionBalanceEnable();
-      } 
-      else {
-        Serial.println(unknown);
-      }
-    } 
-    else if (command.startsWith("SERIAL")) 
-    {
-      if (command.length() == 6 || command.length() == 7) {
-        functionSerialEnable();
-      } 
-      else {
-        Serial.println(unknown);
-      }
-    } 
-    else if (command.startsWith("ANG_SET")) 
-    {
-      if (command.length() == 7 || command.length() == 8) {
-        functionAngleCurrent();
-      } 
-      else {
-        Serial.println(unknown);
-      }
-    } 
-    else if (command.startsWith("P ")) 
-    {
-      float arg = command.substring(2).toFloat();
-      functionP(arg);
-    } 
-    else if (command.startsWith("I ")) 
-    {
-      float arg = command.substring(2).toFloat();
-      functionI(arg);
-    }
-    else if (command.startsWith("D ")) 
-    {
-      float arg = command.substring(2).toFloat();
-      functionD(arg);
-    }
-    else if (command.startsWith("ANGLE ")) 
-    {
-      float arg = command.substring(6).toFloat();
-      functionAngle(arg);
-    }
-    else if (command.startsWith("SPAN ")) 
-    {
-      String arg1 = getValue(command, ' ', 1);
-      if (arg1 != "") {
-        int val1 = arg1.toInt();
-        functionAngleSpan(val1);
-      } 
-      else {
-        Serial.println("Nieprawidłowy argument!");
-      }
-    }
-
-    // else if (command.startsWith("GO ")) 
-    // {
-    //   String arg1 = getValue(command, ' ', 1);
-    //   if (arg1 != "") {
-    //     int val1 = arg1.toInt();
-    //     functionManualGo(val1);
-    //   } 
-    //   else {
-    //     Serial.println("Nieprawidłowy argument!");
-    //   }
-    // }
-    // else if (command.startsWith("STOP")) 
-    // {
-    //   functionSTOP();
-    // }
-    else if (command.startsWith("V_LIM ")) {
-      String arg1 = getValue(command, ' ', 1);
-      String arg2 = getValue(command, ' ', 2);
-      if (arg1 != "" && arg2 != "") {
-        int val1 = arg1.toInt();
-        int val2 = arg2.toInt();
-        functionVLim(val1, val2);
-      } 
-      else {
-        Serial.println("Nieprawidłowe argumenty!");
-      }
-    }
-    else 
-    {
-      Serial.println(unknown);
+    if (command == "PRINT") {
+      functionPrint();
+    } else if (command == "BAL") {
+      functionBalanceEnable();
+    } else if (command == "SERIAL") {
+      functionSerialEnable();
+    } else if (command == "ANG_SET") {
+      functionAngleCurrent();
+    } else if (command.startsWith("P ")) {
+      functionP(command.substring(2).toFloat());
+    } else if (command.startsWith("I ")) {
+      functionI(command.substring(2).toFloat());
+    } else if (command.startsWith("D ")) {
+      functionD(command.substring(2).toFloat());
+    } else if (command.startsWith("ANGLE ")) {
+      functionAngle(command.substring(6).toFloat());
+    } else if (command.startsWith("SPAN ")) {
+      functionAngleSpan(command.substring(5).toFloat());
+    } else if (command.startsWith("V_LIM ")) {
+      handleVLim(command);
+    } else {
+      Serial.println("Nieznana komenda!");
     }
   }
 }
 
-String getValue(String data, char separator, int index) {
-  int found = 0;
-  int strIndex[] = {0, -1};
-  int maxIndex = data.length() - 1;
-
-  for (int i = 0; i <= maxIndex && found <= index; i++) {
-    if (data.charAt(i) == separator || i == maxIndex) {
-      found++;
-      strIndex[0] = strIndex[1] + 1;
-      strIndex[1] = (i == maxIndex) ? i + 1 : i;
-    }
+void handleVLim(const String &command) {
+  int firstSpace = command.indexOf(' ', 6);
+  if (firstSpace != -1) {
+    int val1 = command.substring(6, firstSpace).toInt();
+    int val2 = command.substring(firstSpace + 1).toInt();
+    functionVLim(val1, val2);
+  } else {
+    Serial.println("Nieprawidłowe argumenty!");
   }
-
-  return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
 void functionP(double arg) {
@@ -136,45 +51,25 @@ void functionP(double arg) {
 void functionI(double arg) {
   Ki_balancing = arg;
   EEPROM.put(ADDR_I, arg);
-  Serial.print("I set to: ");
   balancePID.SetTunings(Kp_balancing, Ki_balancing, Kd_balancing);
+  Serial.print("I set to: ");
   Serial.println(arg);
 }
 
 void functionD(double arg) {
   Kd_balancing = arg;
   EEPROM.put(ADDR_D, arg);
-  Serial.print("D set to: ");
   balancePID.SetTunings(Kp_balancing, Ki_balancing, Kd_balancing);
+  Serial.print("D set to: ");
   Serial.println(arg);
 }
 
 void functionAngle(double arg) {
   Setpoint_angle = arg;
-  // balancePID.SetSetpoint(arg);
   EEPROM.put(ADDR_ANGLE, arg);
-  // Dodaj kod obsługujący zapis parametru ANGLE
   Serial.print("ANGLE set to: ");
   Serial.println(arg);
 }
-
-// void functionManualGo(float arg) {
-//   enable_balancing = false;
-//   manual_go = true;
-//   motor_right_setpoint_speed = arg;
-//   motor_left_setpoint_speed = arg;
-
-//   Serial.print("Manual go: ");
-//   Serial.println(arg);
-// }
-
-// void functionSTOP() {
-//   enable_balancing = false;
-//   manual_go = true;
-//   motor_right_setpoint_speed = 0;
-//   motor_left_setpoint_speed = 0;
-//   Serial.println("STOP");
-// }
 
 void functionAngleSpan(double arg) {
   Angle_balance_span = arg;
@@ -184,13 +79,10 @@ void functionAngleSpan(double arg) {
 }
 
 void functionAngleCurrent() {
-  EEPROM.put(ADDR_ANGLE, kalPitch);
-  Setpoint_angle = kalPitch;
-  // balancePID.SetSetpoint(kalPitch);
-  // Dodaj kod obsługujący zapis parametru ANGLE
+  Setpoint_angle = Input_angle;
+  EEPROM.put(ADDR_ANGLE, Setpoint_angle);
   Serial.print("ANGLE set to: ");
-  Serial.println(kalPitch);
-  // Serial.println("Do hardware reset!");
+  Serial.println(Setpoint_angle);
 }
 
 void functionSerialEnable() {
@@ -206,7 +98,6 @@ void functionBalanceEnable() {
 }
 
 void functionPrint() {
-  // Wyświetl wszystkie parametry
   Serial.print("PID value: ");
   Serial.print(balancePID.GetKp());
   Serial.print(" ");
@@ -221,9 +112,6 @@ void functionPrint() {
   Serial.print(Velocity_limit_min);
   Serial.print(" ");
   Serial.println(Velocity_limit_max);
-  
-
-  // Dodaj inne parametry, jeśli są potrzebne
 }
 
 void functionVLim(double arg1, double arg2) {
@@ -234,10 +122,9 @@ void functionVLim(double arg1, double arg2) {
   Velocity_limit_min = arg1;
   Velocity_limit_max = arg2;
   balancePID.SetOutputLimits(-Velocity_limit_min, Velocity_limit_max);
-  
+
   Serial.print("Wartość parametru V_LIMIT_MIN ustawiona na: ");
   Serial.println(Velocity_limit_min);
   Serial.print("Wartość parametru V_LIMIT_MAX ustawiona na: ");
   Serial.println(Velocity_limit_max);
 }
-
