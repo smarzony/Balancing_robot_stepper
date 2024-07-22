@@ -17,8 +17,8 @@ void commandEngine() {
       functionI(command.substring(2).toFloat());
     } else if (command.startsWith("D ")) {
       functionD(command.substring(2).toFloat());
-    } else if (command.startsWith("ANGLE ")) {
-      functionAngle(command.substring(6).toFloat());
+    // } else if (command.startsWith("ANGLE ")) {
+    //   functionAngle(command.substring(6).toFloat());
     } else if (command.startsWith("SPAN ")) {
       functionAngleSpan(command.substring(5).toFloat());
     } else if (command.startsWith("V_LIM ")) {
@@ -64,12 +64,12 @@ void functionD(double arg) {
   Serial.println(arg);
 }
 
-void functionAngle(double arg) {
-  Setpoint_angle = arg;
-  EEPROM.put(ADDR_ANGLE, arg);
-  Serial.print("ANGLE set to: ");
-  Serial.println(arg);
-}
+// void functionAngle(double arg) {
+//   kalPitch = arg;
+//   EEPROM.put(ADDR_ANGLE, arg);
+//   Serial.print("ANGLE set to: ");
+//   Serial.println(arg);
+// }
 
 void functionAngleSpan(double arg) {
   Angle_balance_span = arg;
@@ -79,7 +79,7 @@ void functionAngleSpan(double arg) {
 }
 
 void functionAngleCurrent() {
-  Setpoint_angle = Input_angle;
+  Setpoint_angle = kalPitch;
   EEPROM.put(ADDR_ANGLE, Setpoint_angle);
   Serial.print("ANGLE set to: ");
   Serial.println(Setpoint_angle);

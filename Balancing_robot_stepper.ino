@@ -1,10 +1,9 @@
 #include <Wire.h>
-// #include <MPU6050.h>
 #include <MPU6050_light.h>
 #include <KalmanFilter.h>
 #include <PID_v1.h>
 #include <EEPROM.h>
-#include <AccelStepper.h>
+#include <FastAccelStepper.h>
 
 #define DOUBLE_SIZEOF 4
 #define UINT8_T_SIZEOF 2
@@ -24,6 +23,14 @@
 
 #define PID_BALANCING_SAMPLE_TIME_MS 100 // originally 50 ms
 
+#define dirPinStepperL    4
+#define enablePinStepperL PIN_ENABLE
+#define stepPinStepperL   9
+
+#define dirPinStepperR    5
+#define enablePinStepperR PIN_ENABLE
+#define stepPinStepperR   10
+
 // KEYBOARD CONTROL
 uint16_t adc_key_val[5] = { 50, 200, 400, 600, 800 };
 int8_t NUM_KEYS = 5;
@@ -36,8 +43,9 @@ bool disable_serial = true;
 bool motor_test_run = false;
 
 // Motors
-AccelStepper motor1(AccelStepper::DRIVER, 2, 4);
-AccelStepper motor2(AccelStepper::DRIVER, 3, 5);
+FastAccelStepperEngine engine = FastAccelStepperEngine();
+FastAccelStepper *stepperL = NULL;
+FastAccelStepper *stepperR = NULL;
 
 // PID
 double Setpoint_angle, Input_angle, Output_motor_speed, Kp_balancing, Ki_balancing, Kd_balancing;
@@ -46,20 +54,9 @@ double Velocity_limit_min, Velocity_limit_max, Angle_balance_span;
 PID balancePID(&Input_angle, &Output_motor_speed, &Setpoint_angle, Kp_balancing, Ki_balancing, Kd_balancing, DIRECT);
 
 // GYRO & KALMAN
-// MPU6050 mpu;
 MPU6050 mpu(Wire);
 
-// // Konfiguracja filtru Kalmana dla osi X i Y (kat, odchylka, pomiar)
-// KalmanFilter kalmanX(0.001, 0.003, 0.03);
-// KalmanFilter kalmanY(0.001, 0.003, 0.03);
-
-// // Obliczone wartosci Pitch i Roll tylko z akcelerometru
-// float accPitch = 0;
-// float accRoll = 0;
-
-// // Obliczone wartosci Pitch i Roll z uwzglednieniem filtru Kalmana i zyroskopu
 float kalPitch = 0;
-// float kalRoll = 0;
 
 unsigned long now, gyro_timer, serial_timer;
 
@@ -74,66 +71,60 @@ void setup() {
   EEPROM.get(ADDR_VELOCITY_LIMIT_MIN, Velocity_limit_min);
   EEPROM.get(ADDR_VELOCITY_LIMIT_MAX, Velocity_limit_max);
   EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span);
-  // Angle_balance_span = 20;
-
-  // mpu.setAccelOffsetX(-2814.0);
-  // mpu.setAccelOffsetY(-304.0);
-  // mpu.setAccelOffsetZ(5198.0);
-
-  // mpu.setGyroOffsetX(-120.0);
-  // mpu.setGyroOffsetY(-72.0);
-  // mpu.setGyroOffsetZ(-51.0);
 
   pinMode(PIN_ENABLE, OUTPUT);
 
   balancePID.SetTunings(Kp_balancing, Ki_balancing, Kd_balancing);
   balancePID.SetOutputLimits(-Velocity_limit_min, Velocity_limit_max);
 
-  // GYRO
-  // Inicjalizacja MPU6050
-  // Serial.println("Inicjalizacja MPU6050");
-  // while (!mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G)) {
-  //   Serial.println("Nie znaleziono MPU6050!");
-  //   delay(500);
-  // }
-
-
-  // // Kalibracja zyroskopu
-  // mpu.calibrateGyro();
-
-
   Wire.begin();
   byte status = mpu.begin();
   Serial.print(F("MPU6050 status: "));
   Serial.println(status);
-  while (status != 0) 
-    {
+  while (status != 0) {}
 
-    }  // stop everything if could not connect to MPU6050
   Serial.println(F("Calculating offsets, do not move MPU6050"));
   delay(1000);
-  mpu.calcOffsets();  // gyro and accelero
+  mpu.calcOffsets();
   Serial.println("Done!");
 
+  // FastAccelStepper setup
+   engine.init();
+   stepperL = engine.stepperConnectToPin(stepPinStepperL);
+   stepperR = engine.stepperConnectToPin(stepPinStepperR);
+   if (stepperL) {
+      stepperL->setDirectionPin(dirPinStepperL);
+      stepperL->setEnablePin(enablePinStepperL);
+      stepperL->setAutoEnable(false);
 
-    // Konfiguracja silników
-  motor1.setMaxSpeed(1500);
-  motor1.setAcceleration(2000);
-  motor2.setMaxSpeed(1500);
-  motor2.setAcceleration(2000);
+      stepperL->setSpeedInHz(1000);
+      stepperL->setAcceleration(10000);
+      // stepperL->moveTo(5000, true);
+      // stepperL->moveTo(0, true);
+   }
 
-  balancePID.SetMode(AUTOMATIC);                           //PID is set to automatic mode
-  balancePID.SetSampleTime(PID_BALANCING_SAMPLE_TIME_MS);  //Set PID sampling frequency is 100ms
+      if (stepperR) {
+      stepperR->setDirectionPin(dirPinStepperR);
+      stepperR->setEnablePin(enablePinStepperR);
+      stepperR->setAutoEnable(false);
+
+      stepperR->setSpeedInHz(1000);
+      stepperR->setAcceleration(10000);
+      // stepperR->moveTo(5000, true);
+      // stepperR->moveTo(0, true);
+   }
+
+  balancePID.SetMode(AUTOMATIC);
+  balancePID.SetSampleTime(PID_BALANCING_SAMPLE_TIME_MS);
   balancePID.SetOutputLimits(-Velocity_limit_min, Velocity_limit_max);
 
   delay(200);
   digitalWrite(PIN_ENABLE, HIGH);
-
 }
 
 void loop() {
   now = millis();
-  keyboard_read();
+  //keyboard_read();
   commandEngine();
 
   if (now - gyro_timer > GYRO_INTERVAL) {
@@ -149,10 +140,18 @@ void loop() {
     balancePID.Compute();
 
     // Przesuwanie silników tylko gdy konieczne
-    motor1.setSpeed(-Output_motor_speed);
-    motor2.setSpeed(Output_motor_speed);
-    motor1.runSpeed();
-    motor2.runSpeed();
+    if (stepperL && stepperR) {
+      stepperL->setSpeedInHz(uint32_t(abs(Output_motor_speed)));
+      stepperR->setSpeedInHz(uint32_t(abs(Output_motor_speed)));
+
+      if (Output_motor_speed < 0) {
+        stepperL->runForward();
+        stepperR->runBackward();
+      } else {
+        stepperL->runBackward();
+        stepperR->runForward();
+      }
+    }
 
     if (kalPitch < Setpoint_angle - Angle_balance_span || kalPitch > Setpoint_angle + Angle_balance_span) {
       disableBalancing();
@@ -168,10 +167,10 @@ void loop() {
 }
 
 void stopMotors() {
-  motor1.setSpeed(0);
-  motor2.setSpeed(0);
-  motor1.runSpeed();
-  motor2.runSpeed();     
+  if (stepperL && stepperR) {
+    stepperL->forceStop();
+    stepperR->forceStop();
+  }
   digitalWrite(PIN_ENABLE, HIGH);
 }
 
