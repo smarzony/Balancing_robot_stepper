@@ -16,12 +16,12 @@
 #define ADDR_VELOCITY_LIMIT_MAX (ADDR_VELOCITY_LIMIT_MIN + DOUBLE_SIZEOF)
 #define ADDR_ANGLE_BALANCE_SPAN (ADDR_VELOCITY_LIMIT_MAX + DOUBLE_SIZEOF)
 
-#define GYRO_INTERVAL 5
+#define GYRO_INTERVAL 2 // Zmniejsz z 5 na 2 ms
 #define SERIAL_INTERVAL 50
 
 #define PIN_ENABLE 6
 
-#define PID_BALANCING_SAMPLE_TIME_MS 100 // originally 50 ms
+#define PID_BALANCING_SAMPLE_TIME_MS 20 // Zmniejsz ze 100 na 20 ms
 
 #define dirPinStepperL    4
 #define enablePinStepperL PIN_ENABLE
@@ -64,13 +64,27 @@ void setup() {
   Serial.begin(115200);
   while (!Serial);
 
-  EEPROM.get(ADDR_P, Kp_balancing);
-  EEPROM.get(ADDR_I, Ki_balancing);
-  EEPROM.get(ADDR_D, Kd_balancing);
-  EEPROM.get(ADDR_ANGLE, Setpoint_angle);
-  EEPROM.get(ADDR_VELOCITY_LIMIT_MIN, Velocity_limit_min);
-  EEPROM.get(ADDR_VELOCITY_LIMIT_MAX, Velocity_limit_max);
-  EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span);
+  if (EEPROM.get(ADDR_P, Kp_balancing) != DOUBLE_SIZEOF) {
+    Serial.println("Błąd odczytu EEPROM dla Kp_balancing");
+  }
+  if (EEPROM.get(ADDR_I, Ki_balancing) != DOUBLE_SIZEOF) {
+    Serial.println("Błąd odczytu EEPROM dla Ki_balancing");
+  }
+  if (EEPROM.get(ADDR_D, Kd_balancing) != DOUBLE_SIZEOF) {
+    Serial.println("Błąd odczytu EEPROM dla Kd_balancing");
+  }
+  if (EEPROM.get(ADDR_ANGLE, Setpoint_angle) != DOUBLE_SIZEOF) {
+    Serial.println("Błąd odczytu EEPROM dla Setpoint_angle");
+  }
+  if (EEPROM.get(ADDR_VELOCITY_LIMIT_MIN, Velocity_limit_min) != DOUBLE_SIZEOF) {
+    Serial.println("Błąd odczytu EEPROM dla Velocity_limit_min");
+  }
+  if (EEPROM.get(ADDR_VELOCITY_LIMIT_MAX, Velocity_limit_max) != DOUBLE_SIZEOF) {
+    Serial.println("Błąd odczytu EEPROM dla Velocity_limit_max");
+  }
+  if (EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span) != DOUBLE_SIZEOF) {
+    Serial.println("Błąd odczytu EEPROM dla Angle_balance_span");
+  }
 
   pinMode(PIN_ENABLE, OUTPUT);
 
@@ -97,10 +111,8 @@ void setup() {
       stepperL->setEnablePin(enablePinStepperL);
       stepperL->setAutoEnable(false);
 
-      stepperL->setSpeedInHz(1000);
-      stepperL->setAcceleration(10000);
-      // stepperL->moveTo(5000, true);
-      // stepperL->moveTo(0, true);
+      stepperL->setSpeedInHz(2000); // Zwiększ z 1000 na 2000
+      stepperL->setAcceleration(200000); // Zwiększ ze 100000 na 200000
    }
 
       if (stepperR) {
@@ -108,10 +120,8 @@ void setup() {
       stepperR->setEnablePin(enablePinStepperR);
       stepperR->setAutoEnable(false);
 
-      stepperR->setSpeedInHz(1000);
-      stepperR->setAcceleration(10000);
-      // stepperR->moveTo(5000, true);
-      // stepperR->moveTo(0, true);
+      stepperR->setSpeedInHz(2000);
+      stepperR->setAcceleration(200000);
    }
 
   balancePID.SetMode(AUTOMATIC);
@@ -164,6 +174,8 @@ void loop() {
     serial_timer = now;
     serial_data();
   }
+
+  delay(1);
 }
 
 void stopMotors() {

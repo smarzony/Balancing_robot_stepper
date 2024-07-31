@@ -44,24 +44,25 @@ void functionP(double arg) {
   Kp_balancing = arg;
   EEPROM.put(ADDR_P, arg);
   balancePID.SetTunings(Kp_balancing, Ki_balancing, Kd_balancing);
-  Serial.print("P set to: ");
-  Serial.println(arg);
+  printMessage("P ustawione na: ", arg);
 }
 
 void functionI(double arg) {
   Ki_balancing = arg;
   EEPROM.put(ADDR_I, arg);
   balancePID.SetTunings(Kp_balancing, Ki_balancing, Kd_balancing);
-  Serial.print("I set to: ");
-  Serial.println(arg);
+  // Serial.print("I set to: ");
+  // Serial.println(arg);
+  printMessage("I ustawione na: ", arg);
 }
 
 void functionD(double arg) {
   Kd_balancing = arg;
   EEPROM.put(ADDR_D, arg);
   balancePID.SetTunings(Kp_balancing, Ki_balancing, Kd_balancing);
-  Serial.print("D set to: ");
-  Serial.println(arg);
+  // Serial.print("D set to: ");
+  // Serial.println(arg);
+  printMessage("D ustawione na: ", arg);
 }
 
 // void functionAngle(double arg) {
@@ -127,4 +128,9 @@ void functionVLim(double arg1, double arg2) {
   Serial.println(Velocity_limit_min);
   Serial.print("Wartość parametru V_LIMIT_MAX ustawiona na: ");
   Serial.println(Velocity_limit_max);
+}
+
+void printMessage(const char* prefix, double value) {
+  Serial.print(prefix);
+  Serial.println(value);
 }
