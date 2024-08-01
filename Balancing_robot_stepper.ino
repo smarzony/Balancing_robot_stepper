@@ -31,6 +31,11 @@
 #define enablePinStepperR PIN_ENABLE
 #define stepPinStepperR   10
 
+// void calibrateGyro();
+// void stopMotors();
+// void commandEngine();
+// void serial_data();
+
 // KEYBOARD CONTROL
 uint16_t adc_key_val[5] = { 50, 200, 400, 600, 800 };
 int8_t NUM_KEYS = 5;
@@ -56,35 +61,46 @@ PID balancePID(&Input_angle, &Output_motor_speed, &Setpoint_angle, Kp_balancing,
 // GYRO & KALMAN
 MPU6050 mpu(Wire);
 
-float kalPitch = 0;
+// Dodaj nowe zmienne dla filtru komplementarnego
+float accelAngle, gyroRate;
+float y_angle = 0;
+float dt = 0.002; // Interwał czasu (2ms)
+float alpha = 0.95; // Współczynnik filtru
+float gyroOffset = 0;
+
+unsigned long lastUpdateTime = 0;
 
 unsigned long now, gyro_timer, serial_timer;
+
+void calibrateGyro() {
+  float sum = 0;
+  int samples = 1000;
+  
+  Serial.println("Kalibracja żyroskopu. Nie ruszaj robota.");
+  for(int i = 0; i < samples; i++) {
+    mpu.update();
+    sum += mpu.getGyroY();
+    delay(1);
+  }
+  
+  gyroOffset = sum / samples;
+  Serial.print("Offset żyroskopu: ");
+  Serial.println(gyroOffset);
+}
+
 
 void setup() {
   Serial.begin(115200);
   while (!Serial);
 
-  if (EEPROM.get(ADDR_P, Kp_balancing) != DOUBLE_SIZEOF) {
-    Serial.println("Błąd odczytu EEPROM dla Kp_balancing");
-  }
-  if (EEPROM.get(ADDR_I, Ki_balancing) != DOUBLE_SIZEOF) {
-    Serial.println("Błąd odczytu EEPROM dla Ki_balancing");
-  }
-  if (EEPROM.get(ADDR_D, Kd_balancing) != DOUBLE_SIZEOF) {
-    Serial.println("Błąd odczytu EEPROM dla Kd_balancing");
-  }
-  if (EEPROM.get(ADDR_ANGLE, Setpoint_angle) != DOUBLE_SIZEOF) {
-    Serial.println("Błąd odczytu EEPROM dla Setpoint_angle");
-  }
-  if (EEPROM.get(ADDR_VELOCITY_LIMIT_MIN, Velocity_limit_min) != DOUBLE_SIZEOF) {
-    Serial.println("Błąd odczytu EEPROM dla Velocity_limit_min");
-  }
-  if (EEPROM.get(ADDR_VELOCITY_LIMIT_MAX, Velocity_limit_max) != DOUBLE_SIZEOF) {
-    Serial.println("Błąd odczytu EEPROM dla Velocity_limit_max");
-  }
-  if (EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span) != DOUBLE_SIZEOF) {
-    Serial.println("Błąd odczytu EEPROM dla Angle_balance_span");
-  }
+  EEPROM.get(ADDR_P, Kp_balancing);
+
+  EEPROM.get(ADDR_I, Ki_balancing);
+  EEPROM.get(ADDR_D, Kd_balancing);
+  EEPROM.get(ADDR_ANGLE, Setpoint_angle);
+  EEPROM.get(ADDR_VELOCITY_LIMIT_MIN, Velocity_limit_min);
+  EEPROM.get(ADDR_VELOCITY_LIMIT_MAX, Velocity_limit_max);
+  EEPROM.get(ADDR_ANGLE_BALANCE_SPAN, Angle_balance_span);
 
   pinMode(PIN_ENABLE, OUTPUT);
 
@@ -97,10 +113,11 @@ void setup() {
   Serial.println(status);
   while (status != 0) {}
 
-  Serial.println(F("Calculating offsets, do not move MPU6050"));
-  delay(1000);
-  mpu.calcOffsets();
-  Serial.println("Done!");
+  // Kalibracja żyroskopu
+  // calibrateGyro();
+
+  mpu.setAccOffsets(-2814.00000, -304.00000, 5198.00000);
+  mpu.setGyroOffsets(-120.00000, -72.00000, -51.00000);
 
   // FastAccelStepper setup
    engine.init();
@@ -130,22 +147,42 @@ void setup() {
 
   delay(200);
   digitalWrite(PIN_ENABLE, HIGH);
-}
 
 void loop() {
   now = millis();
-  //keyboard_read();
   commandEngine();
 
   if (now - gyro_timer > GYRO_INTERVAL) {
     mpu.update();
     gyro_timer = now;
-    kalPitch = mpu.getAngleY();
+    
+    dt = (now - lastUpdateTime) / 1000.0;
+    lastUpdateTime = now;
+    
+    accelAngle = mpu.getAccAngleY();
+    gyroRate = mpu.getGyroY() - gyroOffset;
+    
+    // Konwersja prędkości kątowej na stopnie
+    float gyroAngle = y_angle + gyroRate * dt;
+    
+    // Implementacja filtru komplementarnego
+    float prev_y_angle = y_angle;
+    y_angle = alpha * gyroAngle + (1 - alpha) * accelAngle;
+    
+    // Wyświetl wartości do debugowania
+    Serial.print("Accel: ");
+    Serial.print(accelAngle, 2);
+    Serial.print(" Gyro: ");
+    Serial.print(gyroAngle, 2);
+    Serial.print(" Filtered: ");
+    Serial.print(y_angle, 2);
+    Serial.print(" Delta: ");
+    Serial.println(y_angle - prev_y_angle, 4);
   }
 
   if (enable_balancing) {
     digitalWrite(PIN_ENABLE, LOW);
-    Input_angle = kalPitch;
+    Input_angle = y_angle;
 
     balancePID.Compute();
 
@@ -163,7 +200,7 @@ void loop() {
       }
     }
 
-    if (kalPitch < Setpoint_angle - Angle_balance_span || kalPitch > Setpoint_angle + Angle_balance_span) {
+    if (y_angle < Setpoint_angle - Angle_balance_span || y_angle > Setpoint_angle + Angle_balance_span) {
       disableBalancing();
     }
   } else {
@@ -195,10 +232,12 @@ void disableBalancing() {
 
 void serial_data() {
   Serial.print("E:");
-  Serial.print(kalPitch - Setpoint_angle);
-  Serial.print(",");
-  Serial.print("Out_spd:");
+  Serial.print(y_angle - Setpoint_angle);
+  Serial.print(",Out_spd:");
   Serial.print(Output_motor_speed);
-  Serial.print(",");
+  Serial.print(",Set_angle:");
+  Serial.print(Setpoint_angle);
+  Serial.print(",Y_angle:");
+  Serial.print(y_angle);
   Serial.println();
 }

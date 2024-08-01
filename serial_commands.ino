@@ -66,7 +66,7 @@ void functionD(double arg) {
 }
 
 // void functionAngle(double arg) {
-//   kalPitch = arg;
+//   y_angle = arg;
 //   EEPROM.put(ADDR_ANGLE, arg);
 //   Serial.print("ANGLE set to: ");
 //   Serial.println(arg);
@@ -80,7 +80,7 @@ void functionAngleSpan(double arg) {
 }
 
 void functionAngleCurrent() {
-  Setpoint_angle = kalPitch;
+  Setpoint_angle = y_angle;
   EEPROM.put(ADDR_ANGLE, Setpoint_angle);
   Serial.print("ANGLE set to: ");
   Serial.println(Setpoint_angle);
